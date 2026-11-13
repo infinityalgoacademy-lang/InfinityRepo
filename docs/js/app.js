@@ -1002,7 +1002,7 @@ if (params.has("settings")) openSettings()
     if (!q) {
       // nothing typed: the views, a way back if filters are on, and the biggest themes as a hint of what can be typed
       const on = anyFacet() || state.f || state.lang || state.q
-      items = [...commands().filter((c) => c.kind === "View" || (c.kind === "Action" && on)), ...commands().filter((c) => c.kind === "Theme").sort((a, b) => b.n - a.n).slice(0, 6)]
+      items = [...commands().filter((c) => c.kind === "View" || (c.kind === "Action" && on)), ...commands().filter((c) => c.kind === "Theme").sort((a, b) => b.n - a.n).slice(0, 10)]
     } else {
       const hits = commands().map((c) => [rank(c, words), c]).filter((x) => x[0] >= 0).sort((a, b) => a[0] - b[0] || (b[1].n ?? 0) - (a[1].n ?? 0)).slice(0, 8)
       const found = search(q, repos.filter(visible))
