@@ -1,0 +1,8 @@
+.preview/
+.vscode/
+.DS_Store
+newsletter.html
+_site/
+node_modules/
+.preview/
+*.log

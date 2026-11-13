@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How starwire works</title>
+<meta name="description" content="Where starwire's repos come from, how they're checked, and exactly how Trending and the other sorts are ranked.">
+<meta name="theme-color" content="#141414">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://starwire.foo/how.html">
+<meta property="og:title" content="How starwire works">
+<meta property="og:description" content="Where the repos come from, how they're checked, and how every list is ranked.">
+<meta property="og:image" content="https://starwire.foo/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23e3b341' d='M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6z'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script>try{const t=localStorage.getItem("starwire-theme");if(t)document.documentElement.dataset.theme=t}catch{}</script>
+<style>
+  /* this page only: a readable article on the site's tokens */
+  .doc-bar { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
+  .doc-bar .brand { padding: 0; }
+  .doc-bar .back { margin-left: auto; font-size: 14px; color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 6px; }
+  .doc-bar .back:hover { background: var(--raise); color: var(--text); }
+  .doc { max-width: 46rem; margin: 0 auto; padding: 40px 20px 72px; line-height: 1.65; font-size: 15.5px; }
+  .doc h1 { font-size: 30px; letter-spacing: -0.03em; line-height: 1.15; margin: 0 0 10px; }
+  .doc .lede { font-size: 17px; color: color-mix(in srgb, var(--text) 80%, var(--muted)); margin: 0 0 8px; }
+  .doc .stamp { font-size: 13px; color: var(--muted); margin: 0 0 32px; }
+  .doc h2 { scroll-margin-top: 64px; font-size: 19px; letter-spacing: -0.02em; margin: 40px 0 10px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .doc h3 { font-size: 15.5px; margin: 22px 0 6px; }
+  .doc p, .doc ul, .doc ol { margin: 0 0 12px; }
+  .doc li { margin: 4px 0; }
+  .doc a { color: var(--accent); }
+  .doc code { font-family: ui-monospace, Menlo, monospace; font-size: 13.5px; background: var(--raise); padding: 1px 6px; border-radius: 5px; }
+  .doc .formula { font-family: ui-monospace, Menlo, monospace; font-size: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; margin: 0 0 12px; overflow-x: auto; }
+  .doc table.wide td:first-child { width: 34%; } .doc table.wide code { overflow-wrap: anywhere; }
+  .doc table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 0 0 14px; }
+  .doc th, .doc td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .doc th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  .doc .note { font-size: 14px; color: var(--muted); }
+  .doc .toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; margin: 0 0 8px; padding: 0; list-style: none; }
+  .doc .log li { margin: 6px 0; }
+  .doc .log b { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header class="doc-bar">
+  <a class="brand" href="./">
+    <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6z"/></svg></span>
+    <span><strong>InfnityRepo</strong></span>
+  </a>
+  <a class="back" href="./">Back to the list</a>
+</header>
+
+<main class="doc">
+  <h1>How starwire works</h1>
+  <p class="lede">Where the repos come from, how they're checked, and exactly how every list is ranked. If something here doesn't match what you see, <a href="https://github.com/boffti/starwire/issues/new?template=bug-report.yml">tell us</a>.</p>
+  <p class="stamp">Last changed November 8, 2026. Every change to the method is listed at the bottom.</p>
+  <ul class="toc">
+    <li><a href="#sources">Where repos come from</a></li>
+    <li><a href="#checks">What gets listed</a></li>
+    <li><a href="#updates">How often it updates</a></li>
+    <li><a href="#categories">Categories and descriptions</a></li>
+    <li><a href="#trending">How Trending works</a></li>
+    <li><a href="#sorts">The other sorts and labels</a></li>
+    <li><a href="#neutral">What never affects ranking</a></li>
+    <li><a href="#signal">Worth a look, the default order</a></li>
+    <li><a href="#vitals">Vital signs on repo pages</a></li>
+    <li><a href="#setup">Setup effort</a></li>
+    <li><a href="#data">Use the data</a></li>
+    <li><a href="#counts">What we count</a></li>
+    <li><a href="#limits">Known limits</a></li>
+    <li><a href="#changes">Changes to the method</a></li>
+  </ul>
+
+  <h2 id="sources">Where repos come from</h2>
+  <p>A repo lands on starwire when someone points at it. We collect five kinds of picks:</p>
+  <ul>
+    <li><b>Developer curators</b> who post open source projects for their followers. We read the repo link from each post.</li>
+    <li><b>Reddit communities</b> where developers share projects. A post counts when it's about a repo: it links the repo or names it in the title, not just mentions one in passing. Each community counts as one curator, and posts need at least 20 upvotes.</li>
+    <li><b>Hacker News</b> stories that link to a GitHub repo and reach 30 points, or 20 for Show HN.</li>
+    <li><b>GitHub Trending</b>, the weekly list.</li>
+    <li><b>Reader submissions</b> through the <a href="https://github.com/boffti/starwire/issues/new?template=submit-repo.yml">submission form</a>. Your own projects are welcome; the form asks you to say so.</li>
+  </ul>
+  <p>Each of these counts as a separate source. A repo picked by several of them is shown as <b>picked 2×</b>, <b>picked 3×</b> and so on.</p>
+
+  <h2 id="checks">What gets listed</h2>
+  <ul>
+    <li>The repo must be public on GitHub and not archived.</li>
+    <li>Submissions need at least 10 stars. Every submission gets a reply on its issue with the result.</li>
+    <li>New repos are reviewed on each update. Anything that looks like spam, malware or isn't open source software is hidden.</li>
+    <li>A repo that is deleted, made private or archived drops off on the next refresh.</li>
+  </ul>
+  <p class="note">Listing a repo isn't an endorsement or a security review. Read the code and the license before you run anything.</p>
+
+  <h2 id="updates">How often it updates</h2>
+  <table>
+    <tr><th>What</th><th>How often</th></tr>
+    <tr><td>Looking for new repos, handling submissions</td><td>Every two days</td></tr>
+    <tr><td>Stars, forks, open issues and pull requests, last commit, license, renames</td><td>Every day, for every listed repo</td></tr>
+    <tr><td>Star history used by Trending</td><td>One count per repo per day, kept daily for 90 days and weekly after that</td></tr>
+  </table>
+  <p>The data behind the site is public: <a href="https://github.com/boffti/starwire/blob/main/data/repos.json">repos.json</a>, and an <a href="feed.xml">RSS feed</a> of new picks.</p>
+
+  <h2 id="categories">Categories and descriptions</h2>
+  <p>Each new repo is put in one of 15 categories and gets a one-line description, written by an AI model (Claude) from the repo's own description and README, following fixed rules: say what it does in plain words, no hype. Submitters can suggest a category. These are the parts most likely to be wrong, so if one is, <a href="https://github.com/boffti/starwire/issues/new">open an issue</a> with the repo link and we'll fix it.</p>
+
+  <h2 id="trending">How Trending works</h2>
+  <p>Trending shows repos gaining stars fastest right now for their size. It uses only stars we measured ourselves.</p>
+  <p><b>Hidden gems</b> is the same list, cut down to repos that still have fewer than 1,000 stars: the ones rising before most people have heard of them.</p>
+  <h3>1. Stars gained in the last 7 days</h3>
+  <p>Every day we record each repo's star count. The gain is today's count minus the count from 7 days ago.</p>
+  <ul>
+    <li>A repo created less than 7 days ago gained all its stars this week, so its gain is its star count.</li>
+    <li>While we have fewer than 7 days of counts for a repo, it shows only the days measured, as <code>+255 in 1 day</code>. Nothing is projected forward.</li>
+    <li>For a repo under 30 days old, the missing days are filled with its own average since it was created. That's an estimate, so it's marked with a <code>~</code>, as in <code>~+700 a week</code>.</li>
+  </ul>
+  <h3>2. Adjusted for size</h3>
+  <p>A repo with 200,000 stars picks up hundreds a week out of habit. A small one gaining the same is far more remarkable. So the ranking divides the gain by the square root of the repo's size:</p>
+  <p class="formula">heat = stars gained in 7 days / &radic;(stars + 100)</p>
+  <p>The square root keeps big repos in the running without letting them drown out small ones, and the <code>+ 100</code> stops a brand new repo with a handful of stars from jumping to the top on its first few. A repo needs at least 50 stars in the week to appear in Trending at all.</p>
+  <p class="note">Example: +2,000 stars on a 3,000-star repo scores 2,000 / &radic;3,100 &asymp; 36. The same +2,000 on a 100,000-star repo scores about 6.</p>
+
+  <h2 id="sorts">The other sorts and labels</h2>
+  <table>
+    <tr><th>Sort</th><th>Order</th></tr>
+    <tr><td>Worth a look</td><td>The default. Stars gained in the latest day, weighted by five signal checks. <a href="#signal">How it works</a></td></tr>
+    <tr><td>Most stars today</td><td>Stars gained in the latest day of our daily counts, with no weighting. The arrow beside the rank compares it with the day before.</td></tr>
+    <tr><td>Most picked</td><td>Number of different sources that picked the repo. Each source counts once, however often it posts. Ties go to more stars.</td></tr>
+    <tr><td>Trending</td><td>Heat, as above</td></tr>
+    <tr><td>Most stars</td><td>Current stars</td></tr>
+    <tr><td>Newest picks</td><td>The date a repo was first picked by any source</td></tr>
+    <tr><td>Recently updated</td><td>The last commit to the repo</td></tr>
+    <tr><td>Recently saved</td><td>Your own saves, newest first. Saves stay in your browser.</td></tr>
+  </table>
+  <table>
+    <tr><th>Label</th><th>Meaning</th></tr>
+    <tr><td><b>new</b></td><td>A new project: first picked in the 7 days before the latest update, and created on GitHub in the last 90 days. Older repos picked for the first time join the list without this label. The same rule picks "New this week".</td></tr>
+    <tr><td><b>picked 3×</b></td><td>Picked by 3 different sources</td></tr>
+    <tr><td>Green dot, <b>updated 5d ago</b></td><td>Last commit under 30 days ago</td></tr>
+    <tr><td>Amber dot, <b>updated 4mo ago</b></td><td>Last commit under a year ago</td></tr>
+    <tr><td>Grey dot, <b>quiet 2y</b></td><td>No commits for a year or more</td></tr>
+  </table>
+
+  <h2 id="neutral">What never affects ranking</h2>
+  <ul>
+    <li>No one can pay to be listed or ranked higher.</li>
+    <li>The StarDash card in the list and in repo panels is our own project, made by the same person who makes starwire. It's always labelled and never changes the order.</li>
+    <li>There are no accounts and no ads. Your saves stay in your browser.</li>
+    <li>Visit counts (below) don't change the ranking. If they ever do, it will be listed under changes first.</li>
+    <li>The README previews load from GitHub, and the two libraries that render them load from cdnjs with integrity checks, so a tampered copy is refused.</li>
+  </ul>
+
+  <h2 id="signal">Worth a look, the default order</h2>
+  <p>Stars are easy to get for a week. A new repo with a polished README can collect thousands before anyone has used it. So the default order isn't raw star gain. It is stars gained per day, weighted by five checks on whether that attention looks earned:</p>
+  <table>
+    <thead><tr><th>Check</th><th>Passes when</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>Picked</td><td>More than one independent source picked it</td><td>One mention can be luck or a friend; two rarely are</td></tr>
+      <tr><td>Aged</td><td>The repo is older than 90 days</td><td>It has outlived its launch week</td></tr>
+      <tr><td>Active</td><td>Code was pushed in the last 30 days</td><td>Someone is still working on it</td></tr>
+      <tr><td>Forked</td><td>At least 3 forks for every 100 stars (repos with 200 stars or more)</td><td>People who use a project fork it; stars with almost no forks are attention, not use</td></tr>
+      <tr><td>Steady</td><td>No single day holds more than 60% of the week's new stars (when the week brought 50 or more)</td><td>A one-day spike is a post going round, not a trend</td></tr>
+    </tbody>
+  </table>
+  <p>A repo that passes every check it can be judged on keeps its full daily gain. Each one it fails takes an equal share off, down to a quarter of its gain for a repo that passes none. A check with too little to go on is left out instead of counted against the repo. Nothing is hidden or removed: a repo with weak signal sinks in this one order, and still shows in search, in its area and in every other sort. "Most stars today" is the same list without the weighting.</p>
+  <p>The checks say whether attention looks earned. They don't say a project is good, and a young project from one source can be excellent. Every repo page shows which checks it passed, and the rules are in <a href="https://github.com/boffti/starwire/blob/main/docs/js/signal.js">one short file</a> you can read or challenge.</p>
+
+  <h2 id="vitals">Vital signs on repo pages</h2>
+  <p>Each repo page shows four signs, measured from GitHub about once a week. They describe the project's recent activity; they aren't a rating of its quality. They only break ties on alternatives pages, and never change the order of any other list.</p>
+  <table>
+    <thead><tr><th>Sign</th><th>What it shows</th><th>Green when</th><th>Amber when</th></tr></thead>
+    <tbody>
+      <tr><td>Momentum</td><td>Its place among repos in the same subarea, by stars gained this week</td><td>In the top quarter</td><td>Below the top 60%</td></tr>
+      <tr><td>Activity</td><td>Commits to the main branch in each of the last 12 weeks</td><td>Commits in at least 6 of the 12 weeks</td><td>No commits in 12 weeks</td></tr>
+      <tr><td>Releases</td><td>Time since the latest GitHub release</td><td>Within 90 days</td><td>Over a year ago</td></tr>
+      <tr><td>Issues</td><td>Issues closed in the last 90 days, as a share of issues opened (capped at 100%)</td><td>60% or more</td><td>Under 30%</td></tr>
+    </tbody>
+  </table>
+  <p>Anything between is shown in a softer green. Some signs are left out instead of judged: no releases (many projects never use GitHub releases), fewer than 5 issues opened and closed in 90 days, or a repo with no measured star gain. "How it compares" puts the same numbers next to repos that replace the same tools, or its closest neighbours in its subarea.</p>
+
+  <h2 id="setup">Setup effort</h2>
+  <p>Not everyone who wants an open source tool runs servers. The Setup label, shown on repo pages, alternatives pages and collections and as a filter on the list, says how much know-how a project takes to get running. It is read from how the project is packaged, taking the easiest route it offers:</p>
+  <table>
+    <thead><tr><th>Label</th><th>Shown when the project is</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td>Install like an app</td><td>A desktop app, mobile app or browser extension</td><td>Download it and open it. No server, no terminal.</td></tr>
+      <tr><td>Hosted, free plan<br>Hosted, paid<br>Hosted version</td><td>A server or browser project whose makers also run it for you</td><td>Sign up on the project's site, nothing to install. The label says whether it has a free plan, is paid only, or doesn't state a price. Running it yourself still needs a server.</td></tr>
+      <tr><td>Runs in a browser</td><td>A web app with no server packaging</td><td>Opens in a browser, but you may have to start it yourself.</td></tr>
+      <tr><td>Uses the terminal</td><td>A command-line tool</td><td>Installed and run by typing commands.</td></tr>
+      <tr><td>Needs a server</td><td>A self-hostable service</td><td>Someone technical sets it up on a server, usually with Docker.</td></tr>
+      <tr><td>For developers</td><td>A library, framework, plugin or similar</td><td>A building block for people who write code.</td></tr>
+    </tbody>
+  </table>
+  <p>We haven't installed these projects, so the label describes packaging, not how smooth the install is. The hosted label is judged from each project's own README and website, so far only for projects listed as an alternative to a paid product, and it is checked again when either text changes. Plans and prices move, so confirm on the project's site. A project without the label may still have a hosted version we missed. Setup never changes any ranking.</p>
+
+  <h2 id="license">Licenses</h2>
+  <p>Every repo shows the license GitHub finds in it, and the License filter groups them into four kinds. They say what was found, they aren't legal advice, and nothing is left off the list because of its license.</p>
+  <ul>
+    <li><b>Open source</b>: a known license that lets anyone use, change and share the code, such as MIT, Apache-2.0 or GPL.</li>
+    <li><b>Source available</b>: a known license that publishes the code but limits commercial use, changes or reselling, such as BUSL or a non-commercial Creative Commons license.</li>
+    <li><b>Custom license</b>: the repo has a license file, but GitHub can't match it to a known one. It may be an open license with edits or the project's own terms, so read it before you build on it.</li>
+    <li><b>No license</b>: no license file was found. By default that means the author keeps all rights, even though the code is public.</li>
+  </ul>
+
+  <h2 id="fit">How well an alternative fits</h2>
+  <p>Every product on the alternatives pages has a short checklist of the jobs people use it for, 5 to 8 of them, with the 2 or 3 core jobs marked. Notion's include pages and docs, databases with views, and real-time collaboration. Each project listed against a product is then read against that checklist, from its README and its website: yes, partly (planned, basic, or needs a plugin) or not shown, with the line that backs each yes or partly.</p>
+  <ul>
+    <li>The score is the share of the checklist covered. Core jobs count double, partly counts half.</li>
+    <li>A project that doesn't show one of the core jobs is held under 50%, so one that does the main thing always ranks above one that doesn't.</li>
+    <li>Each project is also tagged as replacing the product, covering one part of it, or doing the same job a different way.</li>
+    <li>Stars and activity play no part in the score. Ties go to the more active project.</li>
+  </ul>
+  <p>The checklists and the reading are done with Claude and checked against a hand-made set of pairs before each change. A feature that neither the README nor the website mentions scores as missing, so a project that documents little can rank lower than it deserves. A project is read again when its README or website changes.</p>
+
+  <h2 id="data">Use the data</h2>
+  <p>Everything starwire publishes is free to build on. The list and its data are <a href="https://github.com/boffti/starwire/blob/main/LICENSE">CC0</a>: no key, no sign-up, no credit needed. All of it refreshes once a day.</p>
+  <table class="wide">
+    <thead><tr><th>What</th><th>Address</th></tr></thead>
+    <tbody>
+      <tr><td>Every repo, as JSON</td><td><code>https://raw.githubusercontent.com/boffti/starwire/main/data/repos.json</code></td></tr>
+      <tr><td>The day's best, as RSS (one item a day)</td><td><code>https://starwire.foo/top.xml</code></td></tr>
+      <tr><td>The 100 newest picks, as RSS</td><td><code>https://starwire.foo/feed.xml</code></td></tr>
+      <tr><td>Past issues of the weekly email, and as RSS</td><td><code>https://list.starwire.foo/archive</code> and <code>/archive.xml</code></td></tr>
+      <tr><td>One area as a Markdown list</td><td><code>https://github.com/boffti/starwire/tree/main/lists</code></td></tr>
+      <tr><td>A repo's badge for its README</td><td><code>https://r.starwire.foo/owner/repo/badge.svg</code></td></tr>
+      <tr><td>A repo's share link and card image</td><td><code>https://r.starwire.foo/owner/repo</code> and <code>/card.png</code></td></tr>
+    </tbody>
+  </table>
+  <p><code>repos.json</code> is one array with an entry per repo. It can be fetched from a web page, since GitHub serves it to any site.</p>
+  <table class="wide">
+    <thead><tr><th>Field</th><th>What it holds</th></tr></thead>
+    <tbody>
+      <tr><td><code>repo</code>, <code>url</code>, <code>page</code></td><td>The <code>owner/name</code>, its GitHub address and its page on starwire</td></tr>
+      <tr><td><code>line</code>, <code>description</code></td><td>Our one-line summary, and the repo's own description</td></tr>
+      <tr><td><code>area</code>, <code>subarea</code>, <code>category</code></td><td>Where it sits in the list</td></tr>
+      <tr><td><code>forms</code>, <code>platforms</code>, <code>worksWith</code>, <code>tags</code></td><td>What kind of thing it is, where it runs, what it plugs into, and its themes</td></tr>
+      <tr><td><code>alternativeTo</code></td><td>Products it can stand in for</td></tr>
+      <tr><td><code>stars</code>, <code>forks</code>, <code>language</code>, <code>license</code>, <code>topics</code>, <code>homepage</code></td><td>Facts from GitHub. <code>license</code> is an SPDX id, <code>Other</code> for a custom license, or <code>null</code> for none</td></tr>
+      <tr><td><code>createdAt</code>, <code>pushedAt</code></td><td>When the repo was created and last pushed to</td></tr>
+      <tr><td><code>firstSeen</code>, <code>picks</code></td><td>The day it was first picked, and how many sources have picked it</td></tr>
+      <tr><td><code>starsThisWeek</code>, <code>trending</code></td><td>Stars gained in the last 7 days as we measured them, and whether it's on the Trending list</td></tr>
+      <tr><td><code>starsWhenPicked</code></td><td>Stars it had on the <code>firstSeen</code> day, or <code>null</code> when we couldn't measure it</td></tr>
+    </tbody>
+  </table>
+  <p>Fields are only ever added to this file. None will be renamed or removed, so anything you build on it keeps working. The files under <code>starwire.foo/data/</code> are the site's own and can change shape without notice; use <code>repos.json</code> instead.</p>
+
+  <h2 id="counts">What we count</h2>
+  <p>starwire counts visits with <a href="https://www.goatcounter.com">GoatCounter</a> to learn what's useful: no cookies, nothing stored in your browser, no IP addresses kept, no way to follow you to other sites. <a href="https://starwire.goatcounter.com">The numbers are public</a>, so you see exactly what we see.</p>
+  <ul>
+    <li>Page visits, without the link's settings or saved lists.</li>
+    <li>Searches, once you stop typing, and whether anything matched. This shows where search falls short.</li>
+    <li>The view or area you open, repos you open, save or share, and clicks through to GitHub. This shows which repos people actually look at.</li>
+  </ul>
+  <p>If your browser sends Do Not Track or Global Privacy Control, nothing is counted and the counting script isn't loaded at all.</p>
+
+  <h2 id="limits">Known limits</h2>
+  <ul>
+    <li>Daily star counts started on November 6, 2026. Until about November 13, many repos show fewer than 7 days of gains.</li>
+    <li>Bought or fake stars can't be detected reliably from public data yet. Since mid-2026 GitHub no longer shows who starred a repo, and the largest study of fake stars (<a href="https://doi.org/10.1145/3744916.3764531">He et al., ICSE 2026</a>) found that even good detectors can wrongly flag honest projects. A sudden jump or few forks isn't proof either: a Hacker News launch looks the same. We're researching this internally, and nothing on starwire is ranked, hidden or labelled because of it. If you believe a listed repo bought its stars, <a href="https://github.com/boffti/starwire/issues/new">tell us</a>.</li>
+    <li>Picks come from what curators and readers find, so some corners of open source are better covered than others. <a href="https://github.com/boffti/starwire/issues/new?template=submit-repo.yml">Submissions</a> help fill the gaps.</li>
+  </ul>
+
+  <h2 id="changes">Changes to the method</h2>
+  <ul class="log">
+    <li><b>Nov 12, 2026.</b> Collections only recommend established projects: a pick needs 100 stars and to pass half of its signal checks, or the need is shown as open.</li>
+    <li><b>Nov 12, 2026.</b> Setup knows about hosted versions: a project that needs a server but is also run by its makers is labelled "Hosted", with whether it has a free plan. <a href="#setup">How setup is read</a>.</li>
+    <li><b>Nov 12, 2026.</b> Setup effort: a label and a filter for how much know-how a project takes to run, and collections open as a stack, need by need. <a href="#setup">How setup is read</a>.</li>
+    <li><b>Nov 12, 2026.</b> The default order is "Worth a look": daily star gain weighted by five signal checks, so repos with a burst of stars and little else sink. "Most stars today" keeps the unweighted order. <a href="#signal">How it works</a>.</li>
+    <li><b>Nov 12, 2026.</b> Vital signs are no longer called "healthy", and the issues sign is worded as issues closed against issues opened, which is what it measures. Alternatives pages show the reading in words, with the line behind each mark one tap away.</li>
+    <li><b>Nov 8, 2026.</b> "New this week" and the new label only cover repos created in the last 90 days. Before, any repo picked for the first time counted, so long-established projects showed up as new.</li>
+    <li><b>Nov 8, 2026.</b> Picks from Reddit communities where developers share projects.</li>
+    <li><b>Nov 8, 2026.</b> Repo pages with vital signs, how a repo compares with its alternatives, and how to get started. <a href="#vitals">How the signs are read</a>.</li>
+    <li><b>Nov 7, 2026.</b> Started counting visits, searches and repo opens without cookies. <a href="#counts">What we count</a>.</li>
+    <li><b>Nov 7, 2026.</b> Started researching fake-star detection internally. It doesn't affect the list or the ranking.</li>
+    <li><b>Nov 7, 2026.</b> Trending uses only measured star gains. Before, a repo's lifetime average was projected forward, which made big repos look like they were still at their launch pace.</li>
+    <li><b>Nov 7, 2026.</b> Stars and repo facts refresh every day instead of every two days.</li>
+    <li><b>Nov 7, 2026.</b> Save repos for later, kept in your browser.</li>
+    <li><b>Nov 6, 2026.</b> Daily star history begins.</li>
+  </ul>
+</main>
+</body>
+</html>
