@@ -124,7 +124,7 @@ function vitalsSection(s, m, v) {
       <div class="n">${s.issues.closed} closed, ${s.issues.opened} opened in 90 days</div>`}</div>`,
   ].join("")
   return `<section aria-labelledby="vs"><div class="sec-head"><h2 id="vs">Vital signs</h2>${chip}</div><div class="tiles">${tiles}</div>
-    <p class="foot-note">From GitHub, checked weekly. Star history started Nov 6, 2026. <a href="how.html#vitals">How we read these</a></p></section>`
+    <p class="foot-note">Static data from starwire. <a href="how.html#vitals">How we read these</a></p></section>`
 }
 
 // repos that replace the same tools, else its neighbours in the same subarea; this one first
@@ -299,6 +299,60 @@ export async function copyClone(b) {
   const cmd = badge ? `[![starwire](https://r.starwire.foo/${r.r}/badge.svg)](https://starwire.foo/?page=${r.r}&ref=badge)` : `git clone https://github.com/${r.r}.git`
   try { await navigator.clipboard.writeText(cmd); label.textContent = "Copied" } catch { label.textContent = cmd }
   setTimeout(() => (label.textContent = badge ? "Copy badge" : "Copy clone"), 1600)
+}
+
+export async function refreshVitalsLive() {
+  console.log("refreshVitalsLive start", r?.r)
+  const repo = r?.r
+  if (!repo) return
+  const key = `livevitals:${repo}`
+  let cached = null
+  try { const raw = sessionStorage.getItem(key); if (raw) { const o = JSON.parse(raw); if (Date.now() - o.at < 3600000) cached = o.v } } catch {}
+  let v = cached
+  if (!v) {
+    v = { release: null, guide: true, gfi: 0, weeks: (vitals[repo]?.weeks ?? []), opened: 0, closed: 0 }
+    // commit activity (weekly, last 52 weeks)
+    try {
+      let res = await fetch(`https://api.github.com/repos/${repo}/stats/commit_activity`)
+      if (res.status === 202) { await new Promise((ok) => setTimeout(ok, 2000)); res = await fetch(`https://api.github.com/repos/${repo}/stats/commit_activity`) }
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data) && data.length) v.weeks = data.slice(-12).map((w) => w.total ?? 0)
+      }
+    } catch {}
+    // latest release
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`)
+      if (res.ok) {
+        const d = await res.json()
+        v.release = [d.tag_name, (d.published_at || "").slice(0, 10)]
+      } else {
+        v.release = null
+      }
+    } catch {}
+    // issues in the last 90 days
+    try {
+      const since = new Date(Date.now() - 90 * 864e5).toISOString()
+      const res = await fetch(`https://api.github.com/repos/${repo}/issues?state=all&since=${encodeURIComponent(since)}&per_page=100`)
+      if (res.ok) {
+        const issues = await res.json()
+        let opened = 0, closed = 0
+        for (const i of issues) {
+          if (i.pull_request) continue
+          opened++
+          if (i.state === "closed") closed++
+        }
+        v.opened = opened
+        v.closed = closed
+      }
+    } catch {}
+    try { sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), v })) } catch {}
+  }
+  const s = signs(v, today)
+  const m = momentum(r, repos)
+  const section = document.querySelector('section[aria-labelledby="vs"]')
+  console.log("vitals section found:", !!section, "weeks:", v.weeks?.length, "release:", v.release, "issues:", v.opened, "/", v.closed)
+  if (section) section.outerHTML = vitalsSection(s, m, v).replace("Static data from starwire.", "Live data from GitHub")
 }
 
 export async function showReadme(root, b) {

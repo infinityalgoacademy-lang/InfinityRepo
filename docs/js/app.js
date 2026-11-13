@@ -17,7 +17,7 @@ import { signs, summary } from "./vitals.js"
 import { weight } from "./signal.js"
 import { SETUP_KINDS, setupOf, setupMark } from "./setup.js"
 import { LICENSE_KINDS, licenseKind, licenseText } from "./license.js"
-import { repoPage, missingPage, showReadme, copyClone, altPage, altIndex, altGroups, replacesOf, stackFor, KIND } from "./repo.js"
+import { repoPage, missingPage, showReadme, refreshVitalsLive, copyClone, altPage, altIndex, altGroups, replacesOf, stackFor, KIND } from "./repo.js"
 
 // collections.json is written by hand (see CONTRIBUTING.md); the site works the same without it
 const [data, collections] = await Promise.all([fetch("data/data.json").then((r) => r.json()), fetch("collections.json").then((r) => (r.ok ? r.json() : [])).catch(() => [])])
@@ -97,7 +97,7 @@ applyLook()
 
 // a static alternatives page (/alternatives/notion/, written by the pipeline's build) names its product in <body data-alt>:
 // carry on as ?alt= so the app works as everywhere else; the page's canonical link keeps the clean address for search
-if (document.body.dataset.alt) { history.replaceState(null, "", `/?alt=${encodeURIComponent(document.body.dataset.alt)}`); delete document.body.dataset.alt; document.title = "starwire" }
+if (document.body.dataset.alt) { history.replaceState(null, "", `/?alt=${encodeURIComponent(document.body.dataset.alt)}`); delete document.body.dataset.alt; document.title = "InfnityRepo — Open Source Repos Worth a Look | Curated GitHub Projects" }
 // a static landing page (/open-source/databases/, also from the build) names its filters in <body data-list>, the same way.
 // Its title stays until the reader moves on, since it describes exactly this list
 let landed = document.body.dataset.list != null
@@ -187,8 +187,8 @@ function renderSidebar() {
   let html
   if (prefs.sidebar === "form") html = "<h2>Forms</h2>" + TX.forms.map(([id, name]) => [id, name, count((r) => r.fo?.includes(id))]).filter((x) => x[2]).sort((a, b) => b[2] - a[2]).map(([id, name, n]) => item("form", id, name, n)).join("")
   else if (prefs.sidebar === "with") html = "<h2>Works with</h2>" + TX.worksWith.map(([id, name]) => [id, name, count((r) => r.ww?.includes(id))]).filter((x) => x[2]).sort((a, b) => b[2] - a[2]).map(([id, name, n]) => item("with", id, name, n)).join("")
-  else html = "<h2>Areas</h2>" + TX.areas.filter((a) => !(prefs.hideAI && a.id === "ai")).map((a) => [a, count((r) => areaPairs(r).some((p) => p.startsWith(a.id + "/")))]).filter((x) => x[1]).sort((x, y) => y[1] - x[1]).map(([a, n]) =>
-    item("a", a.id, a.name, n) + (a.id === state.a && !collapsed ? `<div class="subs">${a.subs.map(([id, name]) => [id, name, count((r) => areaPairs(r).includes(`${a.id}/${id}`))]).filter((x) => x[2]).sort((x, y) => y[2] - x[2]).map(([id, name, k]) => `<button type="button" class="cat sub" data-sa="${esc(id)}" aria-current="false"><span>${esc(name)}</span><span class="n">${k.toLocaleString("en-US")}</span></button>`).join("")}</div>` : "")).join("")
+  else html = "<h2>Areas</h2>" + TX.areas.filter((a) => !(prefs.hideAI && a.id === "ai")).map((a) => [a, count((r) => r.a === a.id)]).filter((x) => x[1]).sort((x, y) => y[1] - x[1]).map(([a, n]) =>
+    item("a", a.id, a.name, n) + (a.id === state.a && !collapsed ? `<div class="subs">${a.subs.map(([id, name]) => [id, name, count((r) => r.a === a.id && r.sa === id)]).filter((x) => x[2]).sort((x, y) => y[2] - x[2]).map(([id, name, k]) => `<button type="button" class="cat sub" data-sa="${esc(id)}" aria-current="false"><span>${esc(name)}</span><span class="n">${k.toLocaleString("en-US")}</span></button>`).join("")}</div>` : "")).join("")
   $("#cats").innerHTML = html
 }
 renderSidebar()
@@ -313,7 +313,7 @@ const sorters = {
 const PROMO_ROW = 3 + Math.floor(Math.random() * 5), PROMO_COL = Math.random()
 
 const facetMatch = (r) =>
-  (!state.a || areaPairs(r).some((p) => (state.sa ? p === `${state.a}/${state.sa}` : p.startsWith(state.a + "/")))) &&
+  (!state.a || (state.sa ? (r.a === state.a && r.sa === state.sa) : r.a === state.a)) &&
   (!state.form || r.fo?.includes(state.form)) && (!state.plat || r.pl?.includes(state.plat)) && (!state.with || r.ww?.includes(state.with)) && (!state.tag || r.tg?.includes(state.tag)) && (!state.lic || licenseKind(r.li) === state.lic) && (!state.setup || setupOf(r.fo, r.ho)?.id === state.setup) && (!inCol() || inCol().order.has(r.r))
 const anyFacet = () => state.a || state.form || state.plat || state.with || state.tag || state.lic || state.setup
 
@@ -464,7 +464,7 @@ function syncURL() {
 }
 
 // ---- repo page: ?page=owner/name shows the repo in the main column, sidebar and search stay ----
-const TITLE = landed ? "starwire" : document.title
+const TITLE = landed ? "InfnityRepo — Open Source Repos Worth a Look | Curated GitHub Projects" : document.title
 let shownPage = "", vitals, fits
 async function showPage() {
   const key = state.alt ? `alt:${state.alt}` : state.page
@@ -493,6 +493,7 @@ async function showPage() {
   document.title = `${r.r.split("/")[1]}: ${r.l || "open source repo"} | starwire`
   count(`page/${r.r}`, "Repo page")
   showReadme(el, null)
+  refreshVitalsLive().catch(() => {})
 }
 // links inside the app (?page=, ?q=, ?a=) move within it and get a history entry, so Back returns
 let moved = false
@@ -594,6 +595,14 @@ $("#scrim").addEventListener("click", closeMenu)
 document.querySelector(".view").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; prefs.layout = b.dataset.view; savePrefs(); set({ view: b.dataset.view, shown: state.shown }) }) // the layout you pick is remembered, like the setting
 $("#everywhere").addEventListener("click", () => set({ f: "", a: "", sa: "", form: "", plat: "", with: "", tag: "", lic: "", setup: "", lang: "", sort: "match" }, true))
 $("#more").addEventListener("click", () => set({ shown: state.shown + PAGE }))
+// auto-load more when the "Show more" button scrolls into view
+const moreBtn = $("#more")
+if (moreBtn && "IntersectionObserver" in window) {
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting && !moreBtn.hidden) { set({ shown: state.shown + PAGE }); break }
+  }, { rootMargin: "200px" })
+  io.observe(moreBtn)
+}
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeMenu()
   if (e.key === "/" && document.activeElement !== $("#q")) { e.preventDefault(); $("#q").focus() }
