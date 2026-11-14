@@ -971,11 +971,23 @@ if (params.has("settings")) openSettings()
 // Command palette (Cmd or Ctrl + K): one box that finds repos and sets any view, area, theme, filter or sort.
 // A filter picked here is added to what is already on, so "local-first" then "Rust" gives both; views start over.
 {
-  const dlg = $("#cmdk"), inp = $("#cmdk-q"), out = $("#cmdk-list"), opener = $("#cmdk-open")
+  const dlg = $("#cmdk"), inp = $("#cmdk-q"), out = $("#cmdk-list"), opener = $("#cmdk-open"), clearQuery = $("#cmdk-clear"), status = $("#cmdk-status"), escAction = $("#cmdk-esc-action")
   const clear = { f: "", a: "", sa: "", form: "", plat: "", with: "", tag: "", lic: "", setup: "", col: "", lang: "", q: "" }
+  const RECENT_KEY = "starwire-cmdk-recents"
+  const sig = (c) => `${c.kind}\u0000${c.label}`
+  const loadRecent = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]")
+      return Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === "string" && x.length < 180))].slice(0, 12) : []
+    } catch { return [] }
+  }
+  const remember = (c) => {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify([sig(c), ...loadRecent().filter((x) => x !== sig(c))].slice(0, 12))) } catch {}
+  }
+  const viewCounts = new Map(VIEWS.filter((v) => !v.hidden).map((v) => [v.f, v.f === "saved" ? () => savedAt.size : repos.filter(v.test).length]))
   let all = null, items = [], at = 0
   const commands = () => (all ??= [
-    ...VIEWS.filter((v) => !v.hidden).map((v) => ({ kind: "View", label: v.label, run: () => set({ ...clear, f: v.f, ...(viewSort(v.f) ? { sort: viewSort(v.f) } : {}) }, true) })),
+    ...VIEWS.filter((v) => !v.hidden).map((v) => ({ kind: "View", label: v.label, n: viewCounts.get(v.f), run: () => set({ ...clear, f: v.f, ...(viewSort(v.f) ? { sort: viewSort(v.f) } : {}) }, true) })),
     ...TX.areas.flatMap((a) => [{ kind: "Area", label: a.name, run: () => set({ a: a.id, sa: "" }, true) }, ...a.subs.map(([id, name]) => ({ kind: "Area", label: `${a.name} › ${name}`, run: () => set({ a: a.id, sa: id }, true) }))]),
     ...[...TAG].map(([t, n]) => ({ kind: "Theme", label: t, n, run: () => set({ tag: t }, true) })),
     ...TX.forms.map(([id, name]) => ({ kind: "Form", label: name, run: () => set({ form: id }, true) })),
@@ -997,41 +1009,92 @@ if (params.has("settings")) openSettings()
     const rest = words.filter((w) => !kind.includes(w))
     return !rest.length ? 1 : label === rest.join(" ") ? 0 : label.startsWith(rest[0]) ? 1 : 2
   }
+  const icon = (kind) => {
+    const key = kind.toLowerCase()
+    const paths = {
+      view: '<path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="3"/>',
+      area: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      theme: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><path d="M7.5 7.5h.01"/>',
+      form: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+      platform: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6M9 12h6M9 17h2"/>',
+      "works with": '<circle cx="8" cy="12" r="3"/><circle cx="16" cy="7" r="3"/><circle cx="16" cy="17" r="3"/><path d="m10.7 10.5 2.6-2M10.7 13.5l2.6 2"/>',
+      collection: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5M3 18l9 5 9-5"/>',
+      license: '<path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10z"/>',
+      setup: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.4-.4-2.4z"/>',
+      language: '<path d="m8 8-5 4 5 4M16 8l5 4-5 4M14 5l-4 14"/>',
+      "instead of": '<path d="M4 7h13l-3-3M20 17H7l3 3"/>',
+      "sort by": '<path d="M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3"/>',
+      action: '<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>',
+      repo: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M8.5 6H15a3 3 0 0 1 3 3v.5"/>',
+      search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    }
+    return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[key] ?? paths.action}</svg>`
+  }
+  const countOf = (c) => typeof c.n === "function" ? c.n() : c.n
+  const optionHTML = (c, i) => {
+    const n = countOf(c), label = c.kind === "Theme" ? `#${c.label}` : c.label
+    return `<li role="option" id="cmdk-${i}" data-i="${i}" aria-selected="${i === 0}"><span class="cmdk-icon">${icon(c.kind)}</span><span class="l">${esc(label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</span>${n != null ? `<span class="n" aria-label="${n.toLocaleString("en-US")} repositories">${n.toLocaleString("en-US")}</span>` : ""}</li>`
+  }
   function draw() {
     const q = inp.value.trim(), words = q.toLowerCase().split(/\s+/).filter(Boolean)
+    clearQuery.hidden = !q
     if (!q) {
-      // nothing typed: the views, a way back if filters are on, and the biggest themes as a hint of what can be typed
+      // nothing typed: recent jumps, the views, a way back if filters are on, and the biggest themes as a hint of what can be typed
       const on = anyFacet() || state.f || state.lang || state.q
-      items = [...commands().filter((c) => c.kind === "View" || (c.kind === "Action" && on)), ...commands().filter((c) => c.kind === "Theme").sort((a, b) => b.n - a.n).slice(0, 10)]
+      const allCommands = commands(), bySig = new Map(allCommands.map((c) => [sig(c), c]))
+      const recents = loadRecent().map((x) => bySig.get(x)).filter(Boolean).slice(0, 4).map((c) => ({ ...c, section: "Jump back in" }))
+      const recentSigs = new Set(recents.map(sig))
+      const views = allCommands.filter((c) => !recentSigs.has(sig(c)) && (c.kind === "View" || (c.kind === "Action" && on))).map((c) => ({ ...c, section: "Start here" }))
+      const themes = allCommands.filter((c) => !recentSigs.has(sig(c)) && c.kind === "Theme").sort((a, b) => b.n - a.n).slice(0, 10).map((c) => ({ ...c, section: "Popular themes" }))
+      items = [...recents, ...views, ...themes]
     } else {
       const hits = commands().map((c) => [rank(c, words), c]).filter((x) => x[0] >= 0).sort((a, b) => a[0] - b[0] || (b[1].n ?? 0) - (a[1].n ?? 0)).slice(0, 8)
       const found = search(q, repos.filter(visible))
-      const rs = [...(found ?? [])].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r]) => ({ kind: "Repo", label: r.r, sub: r.l, run: () => openPanel(r.r) }))
+      const rs = [...(found ?? [])].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([r]) => ({ kind: "Repo", label: r.r, sub: r.l, section: "Repositories", run: () => openPanel(r.r) }))
       // filters named by the query first, then repos, then looser filter matches, then the full search
-      items = [...hits.filter((x) => x[0] < 2).map((x) => x[1]), ...rs, ...hits.filter((x) => x[0] === 2).map((x) => x[1]), { kind: "Search", label: `All repos matching “${q}”`, run: () => set({ ...clear, q }, true) }]
+      const strong = hits.filter((x) => x[0] < 2).map((x) => ({ ...x[1], section: "Best matches" }))
+      const loose = hits.filter((x) => x[0] === 2).map((x) => ({ ...x[1], section: "More commands" }))
+      const searchAll = { kind: "Search", label: `All repos matching “${q}”`, section: "Search", run: () => set({ ...clear, q }, true) }
+      items = [...strong, ...rs, ...loose, searchAll]
     }
     at = 0
-    out.innerHTML = items.map((c, i) => `<li role="option" id="cmdk-${i}" data-i="${i}" aria-selected="${i === 0}"><span class="k">${esc(c.kind)}</span><span class="l">${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</span>${c.n ? `<span class="n">${c.n.toLocaleString("en-US")}</span>` : ""}</li>`).join("")
-    inp.setAttribute("aria-activedescendant", "cmdk-0")
+    let i = 0, section = ""
+    out.innerHTML = items.map((c) => {
+      const heading = c.section !== section ? `<li class="cmdk-section" role="presentation"><span>${esc(c.section)}</span></li>` : ""
+      section = c.section
+      return heading + optionHTML(c, i++)
+    }).join("")
+    const count = items.length
+    status.textContent = q ? `${count} results for “${q}”` : `${count} suggestions`
+    if (escAction) escAction.textContent = q ? "clear" : "close"
+    inp.setAttribute("aria-activedescendant", count ? "cmdk-0" : "")
+    out.scrollTop = 0
   }
+  const options = () => [...out.querySelectorAll('[role="option"]')]
   const move = (to) => {
-    out.children[at]?.setAttribute("aria-selected", "false")
+    if (!items.length) return
+    options()[at]?.setAttribute("aria-selected", "false")
     at = (to + items.length) % items.length
-    out.children[at].setAttribute("aria-selected", "true")
-    out.children[at].scrollIntoView({ block: "nearest" })
-    inp.setAttribute("aria-activedescendant", `cmdk-${at}`)
+    const option = options()[at]
+    option.setAttribute("aria-selected", "true")
+    option.scrollIntoView({ block: "nearest" })
+    inp.setAttribute("aria-activedescendant", option.id)
   }
-  const go = (i) => { const c = items[i]; if (!c) return; dlg.close(); c.run(); scrollTo({ top: 0 }) }
+  const go = (i) => { const c = items[i]; if (!c) return; dlg.close(); remember(c); c.run(); scrollTo({ top: 0 }) }
   const open = () => { inp.value = ""; draw(); dlg.showModal() }
   opener.textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"
   opener.addEventListener("click", (e) => { e.preventDefault(); open() })
   inp.addEventListener("input", draw)
+  clearQuery.addEventListener("click", () => { inp.value = ""; draw(); inp.focus() })
   dlg.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") { e.preventDefault(); move(at + 1) }
     else if (e.key === "ArrowUp") { e.preventDefault(); move(at - 1) }
-    else if (e.key === "Enter") { e.preventDefault(); go(at) }
+    else if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); go(at) }
+    else if (e.key === "Escape" && inp.value) { e.preventDefault(); inp.value = ""; draw() }
+    else if (e.key === "Home" && e.ctrlKey) { e.preventDefault(); at = -1; move(0) }
+    else if (e.key === "End" && e.ctrlKey) { e.preventDefault(); move(items.length - 1) }
   })
-  out.addEventListener("click", (e) => { const li = e.target.closest("li"); if (li) go(+li.dataset.i) })
+  out.addEventListener("click", (e) => { const option = e.target.closest('[role="option"]'); if (option) go(+option.dataset.i) })
   dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close() }) // a click on the dimmed backdrop
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); dlg.open ? dlg.close() : open() }
