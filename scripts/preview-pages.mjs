@@ -12,13 +12,14 @@ import { signs, summary } from "../docs/js/vitals.js"
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
 const num = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n))
 
-// site: where the app lives; cards: the share worker's origin (empty until it is deployed, then the generic image)
+// site: where the app lives; cards: the share worker's origin (empty until it is deployed, then the generic image);
+// rev: a manual cache key for the images, for when the worker changes without the renderer changing
 function config() {
   const file = new URL("../share/cards.json", import.meta.url)
   const conf = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {}
   const site = (process.env.SITE_ORIGIN || conf.site || "https://infinityrepo.pages.dev").replace(/\/$/, "")
   const cards = (process.env.CARD_HOST || conf.cards || "").replace(/\/$/, "")
-  return { site, cards: cards || site, generic: !cards }
+  return { site, cards: cards || site, generic: !cards, rev: conf.rev || "" }
 }
 
 // short hash of the card renderer: any change to how a card looks changes the image URL, so cached copies expire
@@ -56,7 +57,8 @@ export function writePreviews(src, out) {
   const data = read("data.json")
   if (!data.repos) return { repos: 0, alts: 0 }
   const vitals = read("vitals.json"), fit = read("fit.json")
-  const today = data.updated.slice(0, 10), { site, cards, generic } = config(), rev = cardRev()
+  const today = data.updated.slice(0, 10), cfg = config(), { site, cards, generic } = cfg
+  const rev = process.env.CARD_REV || cfg.rev || cardRev()
   const image = (p) => (generic ? `${site}/og.png` : `${cards}${p}?v=${today}-${rev}`)
 
   for (const r of data.repos) {
