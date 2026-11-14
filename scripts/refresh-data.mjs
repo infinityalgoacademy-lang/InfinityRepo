@@ -65,7 +65,7 @@ async function graphql(query, tries = 0) {
 function batchQuery(batch) {
   const parts = batch.map((repo, i) => {
     const [owner, name] = repo.r.split("/")
-    return `r${i}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) { nameWithOwner stargazerCount pushedAt }`
+    return `r${i}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) { nameWithOwner stargazerCount pushedAt forkCount licenseInfo { spdxId } }`
   })
   return `query { rateLimit { remaining resetAt } ${parts.join(" ")} }`
 }
@@ -76,10 +76,9 @@ function weekGain(hs) {
   const last = hs.at(-1)
   const cutoff = Date.parse(last[0]) - WEEK * 864e5
   const base = hs.find(([d]) => Date.parse(d) >= cutoff) ?? hs[0]
+  if (base === last) return null
   const days = Math.max(1, Math.round((Date.parse(last[0]) - Date.parse(base[0])) / 864e5))
-  const delta = last[1] - base[1]
-  const w = days >= WEEK ? delta : Math.round((delta / days) * WEEK)
-  return { w, estimate: days < WEEK }
+  return { w: last[1] - base[1], days, full: days >= WEEK }
 }
 
 let updated = 0
@@ -107,6 +106,15 @@ for (let i = 0; i < targets.length; i += BATCH) {
       repo.p = pushed
       changed = true
     }
+    if (typeof node.forkCount === "number" && repo.fk !== node.forkCount) {
+      repo.fk = node.forkCount
+      changed = true
+    }
+    const license = node.licenseInfo?.spdxId
+    if (license && repo.li !== license) {
+      repo.li = license
+      changed = true
+    }
 
     const hs = repo.hs ?? []
     const last = hs.at(-1)
@@ -115,9 +123,15 @@ for (let i = 0; i < targets.length; i += BATCH) {
     repo.hs = hs.slice(-HISTORY_DAYS)
 
     const gain = weekGain(repo.hs)
+    const sign = (n) => (n > 0 ? "+" : "")
     if (gain) {
       repo.w = gain.w
-      repo.wt = `${gain.estimate ? "~" : ""}+${num(gain.w)} a week`
+      repo.wt = gain.full
+        ? `${sign(gain.w)}${num(gain.w)} a week`
+        : `${sign(gain.w)}${num(gain.w)} in ${gain.days} day${gain.days === 1 ? "" : "s"}`
+    } else {
+      repo.w = 0
+      repo.wt = "+0 a week"
     }
     repo.h = repo.h ?? 0
 
