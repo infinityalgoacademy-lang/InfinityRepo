@@ -5,6 +5,7 @@
 // - standard: a square-ish picture (logo, icon or the owner's avatar) in a tile on the left, our info on the right
 // Only what's known is drawn: signs that don't apply, a missing gain or alternative simply aren't there.
 import { signs, momentum } from "../../docs/js/vitals.js"
+import { BRAND } from "./brand.js"
 
 const C = { bg: "#0b0b0b", panel: "#121212", line: "#222222", text: "#f2f2f2", soft: "#c4c4c4", muted: "#8f8f8f", green: "#75d079", greenOk: "#73a074", amber: "#e3b341", tileLight: "#f4f4f4" }
 const DOT = { good: C.green, ok: C.greenOk, low: C.amber }
@@ -46,7 +47,7 @@ function signStats(cs, width, size) {
 
 const nameSize = (name, big) => (name.length <= 12 ? big : name.length <= 16 ? big * 0.78 : name.length <= 22 ? big * 0.62 : big * 0.5)
 
-// art: { kind: "og" | "readme" | "avatar", src: data URI, wide: boolean }, or null to draw the starwire mark instead
+// art: { kind: "og" | "readme" | "avatar", src: data URI, wide: boolean }, or null to draw the brand mark instead
 export function cardHTML(r, { v, repos, today, area, art }) {
   const [owner, name] = r.r.split("/")
   const cs = chips(r, v, repos, today)
@@ -68,7 +69,7 @@ function standard(r, owner, name, cs, footer, art) {
     <div style="display:flex;flex-shrink:0;gap:12px;margin-top:auto;padding-top:22px;border-top:2px solid ${C.line}">${signStats(cs, 148, 30)}</div>
     <div style="display:flex;flex-shrink:0;justify-content:space-between;align-items:center;margin-top:20px;font-size:22px;color:${C.muted}">
       <span style="width:470px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(footer)}</span>
-      <div style="display:flex;align-items:center;gap:10px;font-weight:600;color:${C.soft}">${MARK(32)}<span>starwire</span></div>
+      <div style="display:flex;align-items:center;gap:10px;font-weight:600;color:${C.soft}">${MARK(32)}<span>${BRAND}</span></div>
     </div>
   </div>
 </div>`

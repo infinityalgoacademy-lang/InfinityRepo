@@ -1,6 +1,7 @@
-// The share card for an alternatives page (r.starwire.foo/instead-of/<product>): "Instead of Notion", then its best
+// The share card for an alternatives page (/r/instead-of/<product>): "Instead of Notion", then its best
 // three replacements, ranked as the site ranks them (how much of the product's checklist each covers, docs/data/fit.json).
 // HTML that Satori can lay out: flexbox only, every container display:flex.
+import { BRAND } from "./brand.js"
 
 const C = { bg: "#0b0b0b", panel: "#121212", line: "#222222", text: "#f2f2f2", soft: "#c4c4c4", muted: "#8f8f8f", green: "#75d079", amber: "#e3b341" }
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
@@ -22,7 +23,7 @@ export function rankAlts(name, repos, fit, healthy = () => 0) {
 
 const productSize = (n) => (n.length <= 10 ? 104 : n.length <= 14 ? 88 : n.length <= 20 ? 70 : 56)
 
-// picks: [{ r, f, avatar }] (avatar: data URI or null), total: how many alternatives the product has on starwire
+// picks: [{ r, f, avatar }] (avatar: data URI or null), total: how many alternatives the product has here
 export function altCardHTML(name, picks, total) {
   const scored = picks.some((p) => p.f)
   const row = ({ r, f, avatar }, i) => {
@@ -43,7 +44,7 @@ export function altCardHTML(name, picks, total) {
       ${right}
     </div>`
   }
-  const foot = `${total} open source ${total === 1 ? "alternative" : "alternatives"} on starwire${scored ? ", best fit first" : ""}`
+  const foot = `${total} open source ${total === 1 ? "alternative" : "alternatives"} on ${BRAND}${scored ? ", best fit first" : ""}`
   return `<div style="display:flex;flex-direction:column;box-sizing:border-box;width:1200px;height:630px;padding:44px 64px 38px;background:${C.bg};color:${C.text};font-family:Geist">
   <div style="display:flex;width:1072px;justify-content:space-between;align-items:flex-start">
     <div style="display:flex;flex-direction:column">
@@ -54,7 +55,7 @@ export function altCardHTML(name, picks, total) {
   </div>
   <div style="display:flex;flex-direction:column;width:1072px;margin-top:${picks.length < 3 ? 40 : 18}px">${picks.map(row).join("")}</div>
   <div style="display:flex;width:1072px;margin-top:auto;justify-content:space-between;align-items:center;font-size:21px;color:${C.muted}">
-    <span>${esc(foot)}</span><span style="font-weight:600;color:${C.soft}">starwire.foo</span>
+    <span>${esc(foot)}</span><span style="font-weight:600;color:${C.soft}">${BRAND}</span>
   </div>
 </div>`.replace(/>\s+</g, "><") // whitespace between tags becomes flex items that space-between spreads out
 }

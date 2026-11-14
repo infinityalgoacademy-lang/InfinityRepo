@@ -1,4 +1,4 @@
-// The README badge for a listed repo, served at r.starwire.foo/<owner>/<name>/badge.svg.
+// The README badge for a listed repo, served at /owner/name/badge.svg on the share worker.
 // It says the best true thing we can about the repo today, so it changes with the nightly refresh.
 // The ladder, first rung that holds:
 //   1 "#3 in Databases"           top ten by stars in its subarea
@@ -11,6 +11,7 @@
 // Rungs 2 to 6 are there for small repos, which rung 1 alone never reaches. A subarea needs MIN_PEERS repos
 // (or MIN_PEERS small ones, for rung 5) before a rank in it means anything.
 // Run `node share/src/badge.js` to check the rules.
+import { BRAND } from "./brand.js"
 
 const TOP = 10, RISING = 5, MIN_PEERS = 5, SMALL = 1000, FLOOR = 10
 const num = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n))
@@ -42,14 +43,15 @@ export function badgeText(r, repos, subName) {
 const width = (s) => [...s].reduce((w, c) => w + (/[ilI.,:;!|' ]/.test(c) ? 3.8 : /[mwMW&@#%]/.test(c) ? 9.6 : /[A-Z0-9]/.test(c) ? 7.4 : 6.5), 0)
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
 
-// two-tone, the shape most README badges have: a dark "★ starwire" then the claim in starwire's gold
+// two-tone, the shape most README badges have: a dark "★ <brand>" then the claim in the brand's gold
 export function badgeSVG(text) {
   // bold runs about 7% wider than the table; textLength then makes any renderer fit the words to the pill
-  const len = Math.round(width(text) * 1.07), left = 72, right = len + 16, w = left + right
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="starwire: ${esc(text)}"><title>starwire: ${esc(text)}</title>` +
+  const label = `★ ${BRAND}`
+  const len = Math.round(width(text) * 1.07), left = Math.round(width(label) * 1.07) + 12, right = len + 16, w = left + right
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="${esc(BRAND)}: ${esc(text)}"><title>${esc(BRAND)}: ${esc(text)}</title>` +
     // gold pill, then the dark half drawn over its left end: no clip path, so no id that could clash when a page inlines several badges
     `<rect width="${w}" height="20" rx="3" fill="#e3b341"/><path d="M0 3a3 3 0 0 1 3-3h${left - 3}v20H3a3 3 0 0 1-3-3z" fill="#21262d"/>` +
-    `<g font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle"><text x="${left / 2}" y="14" fill="#e6edf3"><tspan fill="#e3b341">★</tspan> starwire</text>` +
+    `<g font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle"><text x="${left / 2}" y="14" fill="#e6edf3"><tspan fill="#e3b341">★</tspan> ${esc(BRAND)}</text>` +
     `<text x="${left + right / 2}" y="14" fill="#0d1117" font-weight="bold" textLength="${len}" lengthAdjust="spacingAndGlyphs">${esc(text)}</text></g></svg>`
 }
 

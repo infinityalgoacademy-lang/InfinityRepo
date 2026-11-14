@@ -4,7 +4,9 @@
 // share worker in share/, whose address comes from share/cards.json.
 import fs from "node:fs"
 import path from "node:path"
+import { createHash } from "node:crypto"
 import { altSlug, rankAlts } from "../share/src/altcard.js"
+import { BRAND } from "../share/src/brand.js"
 import { signs, summary } from "../docs/js/vitals.js"
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
@@ -19,10 +21,20 @@ function config() {
   return { site, cards: cards || site, generic: !cards }
 }
 
+// short hash of the card renderer: any change to how a card looks changes the image URL, so cached copies expire
+function cardRev() {
+  const h = createHash("sha1")
+  for (const f of ["card.js", "altcard.js", "brand.js"]) {
+    const p = new URL(`../share/src/${f}`, import.meta.url)
+    if (fs.existsSync(p)) h.update(fs.readFileSync(p))
+  }
+  return h.digest("hex").slice(0, 8)
+}
+
 const tags = ({ title, desc, image, alt, url, target, note }) => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
-<meta property="og:type" content="website"><meta property="og:site_name" content="starwire">
+<meta property="og:type" content="website"><meta property="og:site_name" content="${esc(BRAND)}">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="${esc(url)}"><meta property="og:image" content="${esc(image)}">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${esc(alt)}">
@@ -44,8 +56,8 @@ export function writePreviews(src, out) {
   const data = read("data.json")
   if (!data.repos) return { repos: 0, alts: 0 }
   const vitals = read("vitals.json"), fit = read("fit.json")
-  const today = data.updated.slice(0, 10), { site, cards, generic } = config()
-  const image = (p) => (generic ? `${site}/og.png` : `${cards}${p}?v=${today}`)
+  const today = data.updated.slice(0, 10), { site, cards, generic } = config(), rev = cardRev()
+  const image = (p) => (generic ? `${site}/og.png` : `${cards}${p}?v=${today}-${rev}`)
 
   for (const r of data.repos) {
     const [, short] = r.r.split("/"), v = vitals[r.r]
@@ -56,10 +68,10 @@ export function writePreviews(src, out) {
       title: `${short}: ${r.l || "open source repo"}`,
       desc,
       image: image(`/${r.r}/card.png`),
-      alt: `${short} on starwire`,
+      alt: `${short} on ${BRAND}`,
       url: `${site}/r/${r.r}`,
       target,
-      note: `Open ${short} on starwire`,
+      note: `Open ${short} on ${BRAND}`,
     }))
   }
 
@@ -77,12 +89,12 @@ export function writePreviews(src, out) {
     const target = `${site}/?alt=${encodeURIComponent(name)}`
     write(out, path.join("r", "instead-of", slug), tags({
       title: `Open source alternatives to ${name}`,
-      desc: `${list} ${top.length > 1 ? "lead" : "leads"} the ${ranked.length} on starwire${fit?.products?.[name.toLowerCase()] ? `, ranked by how much of what ${name} does each one covers` : ""}.`,
+      desc: `${list} ${top.length > 1 ? "lead" : "leads"} the ${ranked.length} on ${BRAND}${fit?.products?.[name.toLowerCase()] ? `, ranked by how much of what ${name} does each one covers` : ""}.`,
       image: image(`/instead-of/${slug}/card.png`),
       alt: `Instead of ${name}: ${list}`,
       url: `${site}/r/instead-of/${slug}`,
       target,
-      note: `See the open source alternatives to ${name} on starwire`,
+      note: `See the open source alternatives to ${name} on ${BRAND}`,
     }))
   }
 
