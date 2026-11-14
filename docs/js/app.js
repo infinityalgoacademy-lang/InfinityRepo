@@ -292,14 +292,15 @@ function lead(list) {
 }
 
 const promo = `<a class="promo" href="https://t.me/InfinityAlgo_For_Beginners" target="_blank" rel="noopener noreferrer" aria-label="Open the InfinityAlgo for beginners Telegram channel in a new tab">
+  <span class="promo-sheen" aria-hidden="true"></span>
   <span class="promo-top">
     <span class="promo-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21.4 2.6 2.8 10.3c-.9.35-.8 1.6.1 1.9l4.5 1.4 2.1 6.8a1 1 0 0 0 1.7.4l3-3.1 5.4 4c.7.55 1.8.17 2-.8l2.3-17.9a1 1 0 0 0-1.4-1.1z"/><path d="M7.4 12.5l13-8.6-8.2 9.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    <span class="promo-copy"><small>Free Telegram channel</small><strong>InfinityAlgo for beginners</strong></span>
+    <span class="promo-copy"><small><i class="promo-dot" aria-hidden="true"></i>Free Telegram channel</small><strong>InfinityAlgo for beginners</strong></span>
     <span class="promo-external" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
   </span>
   <p>Algorithms, trading and coding tips for beginners, with daily updates and discussion.</p>
   <span class="promo-topics" aria-hidden="true"><span>Algorithms</span><span>Trading basics</span><span>Coding tips</span></span>
-  <span class="promo-cta">Open Telegram channel<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  <span class="promo-cta"><span>Open Telegram channel</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
 </a>`
 
 // Worth a look: stars per day, kept in full by a repo that passes every signal check and cut for each one it fails
