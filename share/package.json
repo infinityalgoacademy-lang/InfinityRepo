@@ -1,8 +1,8 @@
 {
-  "name": "starwire-share",
+  "name": "infinityrepo-share",
   "private": true,
   "type": "module",
-  "description": "Share links for starwire repos: a preview page and card image per repo, served at r.starwire.foo",
+  "description": "Card images for the site's share links (/r/<owner>/<name>) and README badges, drawn on Cloudflare Workers",
   "scripts": {
     "dev": "wrangler dev",
     "preview": "node preview.mjs",
