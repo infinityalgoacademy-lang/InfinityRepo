@@ -5,6 +5,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { createHash } from "node:crypto"
+import { writePreviews } from "../scripts/preview-pages.mjs"
 
 const [src = "docs", out = "_site"] = process.argv.slice(2)
 fs.rmSync(out, { recursive: true, force: true })
@@ -21,3 +22,6 @@ for (const f of all) {
   else if (code.includes(f) && f.endsWith(".js")) stamp(f, /(from "\.\/[\w.-]+\.js)(")/g)
 }
 console.log(`stamped ${n} references with v=${v} (${code.length} code files)`)
+// the share links' preview pages ship with the site: /r/<owner>/<repo>/ carries the Open Graph tags chat apps read
+const previews = writePreviews(src, out)
+console.log(`wrote ${previews.repos} repo previews and ${previews.alts} alternatives previews`)

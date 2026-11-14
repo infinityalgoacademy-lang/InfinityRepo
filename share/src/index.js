@@ -1,5 +1,6 @@
-// starwire share links, served at r.starwire.foo:
-//   /owner/name           a small page carrying the repo's preview tags; people are sent on to its page on starwire
+// starwire share links, served at r.starwire.foo by default (env.SITE sets the site whose data and pages it uses, so
+// a fork can point it at its own deployment):
+//   /owner/name           a small page carrying the repo's preview tags; people are sent on to its page on the site
 //   /owner/name/card.png  the card image chat apps show (src/card.js), cached for a day
 //   /owner/name/badge.svg the README badge maintainers embed (src/badge.js): its rank, or what else is true today
 //   /instead-of/notion    the same pair for an alternatives page: "Instead of Notion" and its best three (src/altcard.js)
@@ -13,23 +14,24 @@ import { badgeText, badgeSVG } from "./badge.js"
 import { signs, summary } from "../../docs/js/vitals.js"
 import { knowOwners } from "../../docs/js/avatar.js"
 
-const SITE = "https://starwire.foo", SELF = "https://r.starwire.foo"
+const FALLBACK_SITE = "https://starwire.foo"
 const fonts = [400, 600, 700, 800].map((weight) => new GoogleFont("Geist", { weight }))
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
 const num = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n))
+const siteOrigin = (env) => (env?.SITE || FALLBACK_SITE).replace(/\/$/, "")
 
 // the site's data, kept in memory for 10 minutes and in Cloudflare's cache in between
-let memo = { at: 0 }
-async function site() {
-  if (memo.data && Date.now() - memo.at < 6e5) return memo
-  const one = (path) => fetch(`${SITE}/${path}`, { cf: { cacheTtl: 600, cacheEverything: true } }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+let memo = { at: 0, origin: "" }
+async function site(env, origin) {
+  if (memo.data && memo.origin === origin && Date.now() - memo.at < 6e5) return memo
+  const one = (path) => fetch(`${origin}/${path}`, { cf: { cacheTtl: 600, cacheEverything: true } }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
   // the site's data lives in data/; the old top-level address is the fallback while a deploy rolls out
   const get = async (f) => (await one(`data/${f}`)) ?? one(f)
   const [data, vitals, art, fit] = await Promise.all([get("data.json"), get("vitals.json"), get("art.json"), get("fit.json")])
   if (!data) throw new Error("starwire data unavailable")
   knowOwners(data.repos)
   memo = {
-    at: Date.now(), data, vitals: vitals ?? {}, art: art ?? {}, fit: fit ?? {},
+    at: Date.now(), origin, data, vitals: vitals ?? {}, art: art ?? {}, fit: fit ?? {},
     alts: new Map(data.repos.flatMap((r) => r.alt ?? []).map((a) => [altSlug(a), a])), // slug -> product name
     byName: new Map(data.repos.map((r) => [r.r.toLowerCase(), r])),
     area: new Map(data.taxonomy.areas.flatMap((a) => a.subs.map(([id, n]) => [`${a.id}/${id}`, n]))),
@@ -37,19 +39,19 @@ async function site() {
   return memo
 }
 
-function page(r, s) {
+function page(r, s, site, self) {
   const [, name] = r.r.split("/"), today = s.data.updated.slice(0, 10), v = s.vitals[r.r]
   const facts = [`${num(r.s)} stars`, r.w > 0 ? `+${num(r.w)} ${(r.wt ?? "a week").replace(/^~?\+\S+\s*/, "")}` : ""].filter(Boolean).join(", ")
   const desc = [`${facts}.`, v ? `${summary(signs(v, today))}.` : "", r.alt?.length ? `Swaps out ${r.alt.join(", ")}.` : ""].filter(Boolean).join(" ")
   const title = `${name}: ${r.l || "open source repo"}`
-  const target = `${SITE}/?page=${encodeURIComponent(r.r)}`
-  const img = `${SELF}/${r.r}/card.png?v=${today}`
+  const target = `${site}/?page=${encodeURIComponent(r.r)}`
+  const img = `${self}/${r.r}/card.png?v=${today}`
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(title)} | starwire</title>
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="starwire">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
-<meta property="og:url" content="${SELF}/${esc(r.r)}"><meta property="og:image" content="${esc(img)}">
+<meta property="og:url" content="${self}/${esc(r.r)}"><meta property="og:image" content="${esc(img)}">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${esc(`${name} on starwire`)}">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${esc(img)}">
 <link rel="canonical" href="${esc(target)}"><meta http-equiv="refresh" content="0;url=${esc(target)}">
@@ -72,19 +74,19 @@ async function card(r, s, ctx) {
 // ties go to the healthier project, as on the site: how many of activity, releases and issues are green
 const healthy = (s) => (r) => { const v = s.vitals[r.r]; if (!v) return -1; const x = signs(v, s.data.updated.slice(0, 10)); return [x.activity, x.release, x.issues].filter((y) => y.level === "good").length }
 
-function altPage(name, s) {
+function altPage(name, s, site, self) {
   const ranked = rankAlts(name, s.data.repos, s.fit, healthy(s)), top = ranked.slice(0, 3).map((x) => x.r.r.split("/")[1])
   const list = top.length > 1 ? `${top.slice(0, -1).join(", ")} and ${top.at(-1)}` : top[0]
   const title = `Open source alternatives to ${name}`
   const desc = `${list} ${top.length > 1 ? "lead" : "leads"} the ${ranked.length} on starwire${s.fit?.products?.[name.toLowerCase()] ? `, ranked by how much of what ${name} does each one covers` : ""}.`
-  const target = `${SITE}/?alt=${encodeURIComponent(name)}`, slug = altSlug(name)
-  const img = `${SELF}/instead-of/${slug}/card.png?v=${s.data.updated.slice(0, 10)}`
+  const target = `${site}/?alt=${encodeURIComponent(name)}`, slug = altSlug(name)
+  const img = `${self}/instead-of/${slug}/card.png?v=${s.data.updated.slice(0, 10)}`
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(title)} | starwire</title>
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="starwire">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}">
-<meta property="og:url" content="${SELF}/instead-of/${slug}"><meta property="og:image" content="${esc(img)}">
+<meta property="og:url" content="${self}/instead-of/${slug}"><meta property="og:image" content="${esc(img)}">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${esc(`Instead of ${name}: ${list}`)}">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(title)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${esc(img)}">
 <link rel="canonical" href="${esc(target)}"><meta http-equiv="refresh" content="0;url=${esc(target)}">
@@ -106,12 +108,12 @@ async function altCard(name, s) {
 export default {
   async fetch(req, env, ctx) {
     cache.setExecutionContext(ctx)
-    const url = new URL(req.url)
+    const url = new URL(req.url), self = url.origin, origin = siteOrigin(env)
     const a = url.pathname.match(/^\/instead-of\/([a-z0-9-]+)(\/card\.png)?\/?$/i)
     if (a) {
-      const s = await site(), name = s.alts.get(a[1].toLowerCase())
-      if (!name) return Response.redirect(`${SITE}/?alt=all`, 302)
-      if (!a[2]) return new Response(altPage(name, s), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600" } })
+      const s = await site(env, origin), name = s.alts.get(a[1].toLowerCase())
+      if (!name) return Response.redirect(`${origin}/?alt=all`, 302)
+      if (!a[2]) return new Response(altPage(name, s, origin, self), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600" } })
       const key = new Request(url.toString()), hit = await caches.default.match(key)
       if (hit) return hit
       const png = await altCard(name, s)
@@ -120,16 +122,16 @@ export default {
       return res
     }
     const m = url.pathname.match(/^\/([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+?)(\/card\.png|\/badge\.svg)?\/?$/)
-    if (!m) return Response.redirect(SITE, 302)
-    const s = await site()
+    if (!m) return Response.redirect(origin, 302)
+    const s = await site(env, origin)
     const r = s.byName.get(`${m[1]}/${m[2]}`.toLowerCase())
     // a badge is text, so it's cheap: no image cache. An hour is short enough to follow the nightly refresh,
     // and GitHub's image proxy keeps its own copy for about as long. A repo we don't list gets no badge.
     if (m[3] === "/badge.svg") return r
       ? new Response(badgeSVG(badgeText(r, s.data.repos, s.area)), { headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=3600" } })
       : new Response("not listed on starwire", { status: 404 })
-    if (!r) return Response.redirect(`${SITE}/?page=${encodeURIComponent(`${m[1]}/${m[2]}`)}`, 302)
-    if (!m[3]) return new Response(page(r, s), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600" } })
+    if (!r) return Response.redirect(`${origin}/?page=${encodeURIComponent(`${m[1]}/${m[2]}`)}`, 302)
+    if (!m[3]) return new Response(page(r, s, origin, self), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600" } })
     const key = new Request(url.toString()), hit = await caches.default.match(key)
     if (hit) return hit
     const png = await card(r, s, ctx)
