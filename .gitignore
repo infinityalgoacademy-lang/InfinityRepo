@@ -4,5 +4,6 @@
 newsletter.html
 _site/
 node_modules/
+.wrangler/
 .preview/
 *.log

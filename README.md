@@ -25,7 +25,16 @@
 - **Alternatives pages** — open source replacements for popular paid tools (Notion, Figma, Postman…)
 - **Collections** — curated stacks for solopreneurs, founders, and indie hackers
 - **Saved for later** — bookmark repos in your browser, no account needed
-- **Share cards** — rich preview images for every repo at `r.starwire.foo/<owner>/<name>`
+- **Share cards** — copying a share link gives `/r/<owner>/<name>` on the site itself, with a rich preview image for every repo
+
+## 🖼️ Share previews
+
+The share buttons copy a link to the site's own preview route, e.g. `https://<site>/r/<owner>/<name>`. That route
+(`docs/_worker.js`, a Cloudflare Pages advanced-mode worker) writes the page's Open Graph tags and renders the card at
+`/r/<owner>/<name>/card.png` with the same renderer as the share worker (`share/src/card.js`), so chat apps and social
+sites show the repo's stars, gain and vital signs. It needs Cloudflare Pages: a purely static host (GitHub Pages,
+`python3 -m http.server`) serves the app but not those two routes. The `r.starwire.foo` worker still serves standalone
+share cards and README badges.
 - **Weekly newsletter** — trending repos, new picks, hidden gems, and "instead of" spotlights
 - **RSS feeds** — daily top picks and every new pick
 - **Dark / light themes** — with system preference support
@@ -34,14 +43,16 @@
 
 ```
 InfnityRepo/
-├── docs/                  # Static site (GitHub Pages)
+├── docs/                  # Static site (Cloudflare Pages)
 │   ├── index.html         # Main app
 │   ├── how.html           # How it works
+│   ├── _worker.js         # /r/... preview pages and card images
 │   ├── css/style.css      # All styles
 │   ├── js/                # Client-side app (app.js, repo.js, search.js, …)
 │   └── data/              # data.json, vitals.json, fit.json, art.json
 ├── share/                 # Cloudflare Worker for share cards & badges
 │   ├── src/               # card.js, badge.js, altcard.js, art.js
+│   ├── pages/             # The same cards, served by the Pages worker
 │   └── preview.mjs        # Local card preview
 ├── newsletter/            # Weekly email builder
 │   └── newsletter.mjs
@@ -58,6 +69,14 @@ node .github/stamp.mjs docs _site
 cd _site && python3 -m http.server 8080
 ```
 Open http://localhost:8080
+
+### Preview the share cards locally
+```bash
+cd share && npm install          # once
+npx wrangler pages dev ../docs --port 8790
+```
+Open http://localhost:8790/r/owner/name — the meta refresh sends a browser on to the app page, so view the HTML or the
+`/r/owner/name/card.png` image directly. The plain static server above does not run these routes.
 
 ### Build the newsletter preview
 ```bash

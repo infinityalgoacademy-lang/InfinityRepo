@@ -859,13 +859,11 @@ function openPanel(name, push = true) {
   panelFit(r)
 }
 
-// share link: built from the address this site is served from, so it stays on the sharer's own domain and points at
-// the page being shared. r.starwire.foo is never used here: that domain is only for card images and badges.
+// share link: this site's own preview address for the page (/r/<owner>/<repo>), which carries the Open Graph tags
+// for the repo card and sends people on to the app page. Built from the address the site is served from, so it works
+// on any domain. r.starwire.foo is never used here: that domain is only for card images and badges.
 async function share(name, b) {
-  const u = new URL(location.href)
-  const url = name.startsWith("instead-of/")
-    ? `${u.origin}${u.pathname}${u.pathname.includes("/alternatives/") ? "" : u.search}`
-    : `${u.origin}${u.pathname}?page=${name}`
+  const url = `${new URL(location.href).origin}/r/${name}`
   count(`share/${name}`, "Shared")
   if (navigator.share && matchMedia("(pointer: coarse)").matches) return navigator.share({ url, title: name.startsWith("instead-of/") ? `Open source alternatives to ${document.querySelector("#repo-page h1")?.textContent.replace(/^Open source alternatives to /, "") ?? ""}` : `${name.split("/")[1]} on starwire` }).catch(() => {})
   try { await navigator.clipboard.writeText(url) } catch { return void prompt("Copy this link", url) }
