@@ -296,7 +296,8 @@ function startCard(v) {
 export async function copyClone(b) {
   // the same button copies the clone command or, for maintainers, the README badge that links back to this page
   const badge = "badge" in b.dataset, label = b.querySelector("span")
-  const cmd = badge ? `[![starwire](https://r.starwire.foo/${r.r}/badge.svg)](https://starwire.foo/?page=${r.r}&ref=badge)` : `git clone https://github.com/${r.r}.git`
+  // the badge image comes from the share worker, its link from this site: both live on this deployment
+  const cmd = badge ? `[![InfnityRepo](https://infinityrepo-share.infinityalgo.workers.dev/${r.r}/badge.svg)](${location.origin}/?page=${r.r}&ref=badge)` : `git clone https://github.com/${r.r}.git`
   try { await navigator.clipboard.writeText(cmd); label.textContent = "Copied" } catch { label.textContent = cmd }
   setTimeout(() => (label.textContent = badge ? "Copy badge" : "Copy clone"), 1600)
 }
